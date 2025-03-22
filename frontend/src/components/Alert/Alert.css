@@ -1,0 +1,18 @@
+/* Right Panel (Alerts) */
+.right-panel {
+  width: 20%;
+  background: #f4f4f4;
+  padding: 15px;
+  border-left: 1px solid #ddd;
+}
+
+.right-panel h2 {
+  margin-bottom: 10px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .right-panel {
+    display: none;
+  }
+}
