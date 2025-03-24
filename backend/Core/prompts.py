@@ -25,5 +25,5 @@ def get_chatbot_maintemplate():
     return PromptTemplate(template=chatbot_main_template_str, input_variables=["context", "chat_history", "question"])
 
 def get_chatbot_contextualizequery_template():
-    return PromptTemplate(template=chatbot_main_template_str, input_variables=["history", "query"])
+    return PromptTemplate(template=chatbot_contextualize_query_template_str, input_variables=["history", "query"])
 

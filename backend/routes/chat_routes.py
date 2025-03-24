@@ -11,19 +11,19 @@ from controllers.chat_controller import (
 from Core.utility import getApiKey
 
 from typing import Dict, Any
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    ''' Run at startup
-        Initialize the Client and add it to app.state
-    '''
-    getApiKey()
-    app.state.chatbot = MyChatBot()
-    yield
-    ''' Run on shutdown
-        Close the connection
-        Clear variables and release the resources
-    '''
-
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     ''' Run at startup
+#         Initialize the Client and add it to app.state
+#     '''
+#     getApiKey()
+#     app.state.chatbot = MyChatBot()
+#     yield
+#     ''' Run on shutdown
+#         Close the connection
+#         Clear variables and release the resources
+#     '''
+# app = FastAPI(lifespan=lifespan) 
 router = APIRouter()
 
 @router.get("/chats")
@@ -36,7 +36,7 @@ async def chat_history(chat_id: str):
 
 @router.post("/chats/{chat_id}/send")
 async def send_message(request: Request , chat_id: str, payload: Dict[Any, Any]):
-    return await user_sends_message(request.state.chatbot, chat_id, payload)
+    return await user_sends_message(request.app.state.chatbot, chat_id, payload)
 
 @router.post("/chats")
 async def new_chat():

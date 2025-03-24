@@ -3,8 +3,8 @@ from typing import List, TypedDict
 from langchain.docstore.document import Document
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from prompts import get_chatbot_maintemplate, get_chatbot_contextualizequery_template
-from vectorstore import getVectorStore
+from Core.prompts import get_chatbot_maintemplate, get_chatbot_contextualizequery_template
+from Core.vectorstore import getVectorStore
 
 
 

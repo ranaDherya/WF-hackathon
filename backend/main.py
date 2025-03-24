@@ -2,7 +2,26 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.chat_routes import router as chat_router
 
-app = FastAPI()
+from contextlib import asynccontextmanager
+from Core.chatbot import MyChatBot
+from Core.utility import getApiKey
+from typing import Dict, Any
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ''' Run at startup
+        Initialize the Client and add it to app.state
+    '''
+    getApiKey()
+    app.state.chatbot = MyChatBot()
+    yield
+    ''' Run on shutdown
+        Close the connection
+        Clear variables and release the resources
+    '''
+
+app = FastAPI(lifespan=lifespan)
 
 # CORS Middleware
 app.add_middleware(
