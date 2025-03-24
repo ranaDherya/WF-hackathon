@@ -14,7 +14,7 @@ def get_chat_history(chat_id: str):
     return chat_data[chat_id]
 
 # User sends a message (Fixed version)
-async def user_sends_message(chat_id: str, payload: Dict[Any, Any]):
+async def user_sends_message(bot, chat_id: str, payload: Dict[Any, Any]):
     if chat_id not in chat_data:
         chat_data[chat_id] = []
 
@@ -26,15 +26,16 @@ async def user_sends_message(chat_id: str, payload: Dict[Any, Any]):
         "message": payload['message']
     })
 
-
     # Bot auto-reply
-    bot_reply = {
-        "id": len(chat_data[chat_id]) + 1,
-        "sender": "bot",
-        "message": "This is a dummy response!"
-    }
-    chat_data[chat_id].append(bot_reply)
+    bot_reply = bot.invoke(payload['message'])
 
+    chat_data[chat_id].append(bot_reply)
+    new_message_id = len(chat_data[chat_id]) + 1
+    chat_data[chat_id].append({
+        "id": new_message_id,
+        "sender": "bot",
+        "message": bot_reply
+    })
     return bot_reply
 
 
@@ -53,6 +54,4 @@ def delete_chat(chat_id: str):
 
     del chat_data[chat_id]
     return {"id": chat_id, "message": "Deleted Chat"}
-
-
 
