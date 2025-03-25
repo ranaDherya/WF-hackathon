@@ -18,3 +18,5 @@ def init_codegenllm():
     model_with_tools = code_gen_chain_prompt | mistralmodel.bind_tools(tools)
 def init():
     init_codegenllm()
+AIzaSyChB9ntcusuWEekxGFsjXv8bxqngrxIPVU
+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

@@ -2,6 +2,7 @@ from typing import Dict, Any
 
 from fastapi import HTTPException
 from db.chat_data import chat_data, chat_data_index
+from Core.chatbot import MyChatBot
 
 
 def get_chat_list():
@@ -27,7 +28,7 @@ async def user_sends_message(bot, chat_id: str, payload: Dict[Any, Any]):
     })
 
     # Bot auto-reply
-    bot_reply = bot.invoke(payload['message'])
+    bot_reply = bot.generate(payload['message'])
 
     chat_data[chat_id].append(bot_reply)
     new_message_id = len(chat_data[chat_id]) + 1
