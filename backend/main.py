@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.chat_routes import router as chat_router
+from Core.settings import init
+
+
+
+init()
 
 from contextlib import asynccontextmanager
 from Core.chatbot import MyChatBot
@@ -22,6 +27,7 @@ async def lifespan(app: FastAPI):
     '''
 
 app = FastAPI(lifespan=lifespan)
+
 
 # CORS Middleware
 app.add_middleware(

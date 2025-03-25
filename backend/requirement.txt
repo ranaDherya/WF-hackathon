@@ -13,5 +13,7 @@ pandas
 pypdf
 iso4217
 PyMuPDF
-faiss-
+faiss-cpu
+langchain_mistralai
+google-generativeai
 python-multipart
