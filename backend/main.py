@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.chat_routes import router as chat_router
+from Core.settings import init
 
 app = FastAPI()
-
+init()
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
