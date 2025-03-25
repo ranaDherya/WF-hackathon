@@ -13,4 +13,5 @@ pandas
 pypdf
 iso4217
 PyMuPDF
-faiss-cpu
+faiss-
+python-multipart
