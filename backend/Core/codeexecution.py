@@ -52,7 +52,7 @@ def validate_row(idx, row, rules: ComplianceResponse):
                 args = rule.validation_function_argument or []
                 ret_value = func(value, *args)
 
-                if not ret_value or ret_value != "VALID":
+                if not ret_value and ret_value != "VALID":
                     errors.append(f"Row {idx}:- Validation failed for {field}: {rule.description}")
 
     return errors
@@ -64,11 +64,7 @@ def load_validation_rules(json_path):
         rules = f.read()
     return ComplianceResponse.model_validate(from_json(rules))
 
-# Step 5: Main Execution
-if __name__ == "__main__":
-    validation_rules = load_validation_rules("validation.json")
-    fname = sys.argv[1]
-    # Generate function file
+def main(validation_rules, fname):
     write_functions_to_file(validation_rules)
 
     # Example Data Row
@@ -85,3 +81,11 @@ if __name__ == "__main__":
             print(error)
     else:
         print("All validations passed.")
+
+# Step 5: Main Execution
+if __name__ == "__main__":
+    validation_rules = load_validation_rules("validation.json")
+    fname = sys.argv[1]
+    # Generate function file
+    main(validation_rules, fname)
+
