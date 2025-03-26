@@ -74,7 +74,7 @@ def search_document_context(query: str) -> List[str]:
         return metadata.get("source") == "table"
 
     documents = vecstore.similarity_search(
-        query, k=10, filter=_filter_function
+        query, k=1, filter=_filter_function
     )
     return [document.page_content for document in documents]
 
@@ -163,7 +163,6 @@ def route_tools(state: State):
     """
     msg = state["messages"][-1]
     if msg.tool_calls:
-        print(msg.tool_calls)
         return "tools"
     # elif parse_message(msg) == False:
     #     return "parseerror"
@@ -238,6 +237,7 @@ def matches_pattern(field_name: str, description: str, pattern: List[str]) -> st
     my_rules.extracted_rules.append(ValidationRule(field_name=field_name, description=description,
                                                    validation_function_name=
                                                    "matches_pattern", arguments=[pattern]))
+    print(my_rules.extracted_rules)
     return f"Successfully registered rule for {field_name} with validation function matches_pattern."
 
 
