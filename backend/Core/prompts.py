@@ -108,36 +108,37 @@ code_ge_prompt_with_tools_to_register_rules = ChatPromptTemplate.from_messages([
   from regulatory document.
   2. You have to give special attention on allowed_values column. In most cases
   this column will be enough.
-  3.Some example of allowed_values column 
+  3.Some example of allowed_values column
+  ***
   a.{{Rounded whole dollar amount,
   e.g.: 20000000
   Supply numeric values without
   any non- numeric formatting
   (no dollar sign, commas or
-  decimal).}} this can be interpreted as regex pattern for whole number ,
+  decimal).}} this can be interpreted as  is_integer,
   b. Must be in yyyy- mm-dd format,e.g.: 2005-02-01:- can be interpreted
-  as date validation.
-  c. Similarly 2 character country code :- can be interpreted as regex pattern for city code.
+  as matches_pattern.
+  c. Similarly 2 character country code :- can be interpreted as matches_pattern with regex 
+  pattern for two alphabet character.
   d. Enter number code of the description:- check description to find out allowable code value
-   usually 1-n function will be integer range checker which takes two additional parameter of min and max
-  e. one of the given 1.value 2.value1 3.value2 4.value3 so our function will take list of allowed value
-  as argument and can check if it exists 
-  f. value must be valid code as given in description use in_range min value 1 max value x 
-  highest code in description
-  4. You have to register each rule by calling corresponding tool description is what will be printed if the
-  valdation fails example 'field x Should be integer' 
+   it will be integer value in range 1 - some_max_value  you can call is_in_range which takes two additional parameter of min and max
+  e. one of the given 1.value 2.value1 3.value2 4.value3 so call  is_in_list with list of allowed_value 
+  ***
+  4. You have to register each rule by calling corresponding tool, description is what will be printed if the
+  validation fails e.g 'field x Should be integer'
   5. Remember reporting is most important so your validation rules must include nice description
   which can be used to create a informed error message for the cause of failing of rule.
   6. For now you can ignore validation rules requiring more than one field
   7. Please don't register any rule which is not required
   8. Don't make any assumption about the rule
   9. You can retrieve context for each column separately for better context
-  10. You should call registration tool once each for each rule:
+  10.You should call registration tool once each for each rule:
     field_name:  field_name ,description : brief rule description
   11. You must batch your rule registration tool call so as not to exceed api limit
   12. For most of the field you have to call atleast one registration tool
   13. Please don't call tool twice for same rule and column
-   Recall memories are contextually retrieved based on the current
+  
+  Recall memories are contextually retrieved based on the current
   conversation:\n{recall_memories}\n\n
   
   "Memory Usage Guidelines:\n"

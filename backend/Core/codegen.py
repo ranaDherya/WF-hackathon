@@ -3,7 +3,7 @@ import time
 import uuid
 
 from langchain_core.documents import Document
-from langchain_core.messages import get_buffer_string
+from langchain_core.messages import get_buffer_string, AIMessage
 from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -12,32 +12,38 @@ from langchain_mistralai import ChatMistralAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import MessagesState, StateGraph
-from langgraph.prebuilt import ToolNode
-from pydantic import BaseModel, Field
+from langgraph.prebuilt import ToolNode, InjectedState
 from typing import List, Optional, Union, Annotated
+from Core.ValidationRuleClass import ValidationRule, ComplianceResponse, my_rules
+import tiktoken
 
 from Core.prompts import code_gen_chain_prompt, code_ge_prompt_with_tools_to_register_rules
-from Core.settings import vecstore, tokenizer
+# from Core.settings import vecstore, tokenizer
 from Core.utility import getApiKey
+from Core.vectorstore import initializeVectorStore
+
+tokenizer = tiktoken.encoding_for_model("gpt-4o")
+vecstore = initializeVectorStore("data/FR_Y-14Q20240331_i.pdf", "data/regulatory_db")
 
 
 # Data model
-class ValidationRule(BaseModel):
-    description: str = Field(..., description="Detailed explanation of the requirement")
-    field_name: str = Field(..., description="field name")
-    validation_function_name: str = Field(...,
-                                          description="Function from chat history which can be used for this or generated"
-                                                      "function name from code")
-    arguments: Optional[Union[List[int], List[str], List[List[str]]]] = Field(...,
-                                                                              description="Extra aruments needed for function for.eg"
-                                                                                          "for regex validator it will be regex pattern, for range validator it will be min and max value")
-    code: Optional[str] = Field(None,
-                                description="import statement and function without any main method. This function will be used later by main method")
 
+import uuid
 
-class ComplianceResponse(BaseModel):
-    """Respond to the user with this"""
-    extracted_rules: List[ValidationRule] = Field(..., description="List of extracted data validation rules")
+def save_validation_rules_in_file(json_path, rule):
+    rules : str
+    with open(json_path, "r") as f:
+        rules = f.read()
+    curr = ComplianceResponse.model_validate(from_json(rules))
+    curr.extracted_rules.append(rule)
+    with open(json_path, "w") as f:
+        f.write(curr.json(indent=2))
+def get_user_id(config: RunnableConfig) -> str:
+    user_id = config["configurable"].get("user_id")
+    if user_id is None:
+        raise ValueError("User ID needs to be provided to save a memory.")
+
+    return user_id
 
 
 @tool
@@ -67,14 +73,14 @@ def search_recall_memories(query: str) -> List[str]:
 
 
 @tool
-def search_document_context(query: str) -> List[str]:
+def search_document_context(query: str, numberoffields: int) -> List[str]:
     """Search for relevant context from regulatory documents."""
 
     def _filter_function(metadata) -> bool:
-        return metadata.get("source") == "table"
+        return metadata.get("source") in ["table", "history"]
 
     documents = vecstore.similarity_search(
-        query, k=1, filter=_filter_function
+        query, k=numberoffields , filter=_filter_function
     )
     return [document.page_content for document in documents]
 
@@ -82,6 +88,8 @@ def search_document_context(query: str) -> List[str]:
 class State(MessagesState):
     # add memories that will be retrieved based on the conversation context
     recall_memories: List[str]
+    # final_response: ComplianceResponse
+    extracted_rules: List[ValidationRule]
 
 
 def agent(state: State) -> State:
@@ -97,7 +105,7 @@ def agent(state: State) -> State:
     recall_str = (
             "<recall_memory>\n" + "\n".join(state["recall_memories"]) + "\n</recall_memory>"
     )
-    prediction: ComplianceResponse = bound.invoke(
+    prediction = bound.invoke(
         {
             "messages": state["messages"],
             "recall_memories": recall_str,
@@ -162,8 +170,10 @@ def route_tools(state: State):
         Literal["tools", "__end__"]: The next step in the graph.
     """
     msg = state["messages"][-1]
+    print(msg.tool_calls)
     if msg.tool_calls:
         return "tools"
+
     # elif parse_message(msg) == False:
     #     return "parseerror"
     return END
@@ -174,38 +184,55 @@ def get_graph():
     builder = StateGraph(State)
     builder.add_node(load_memories)
     builder.add_node(agent)
-    tools = [save_recall_memory, search_recall_memories, search_document_context]
     builder.add_node("tools", ToolNode(tools))
     # builder.add_node("parseerror", solve_parse_error)
     # Add edges to the graph
     builder.add_edge(START, "load_memories")
     builder.add_edge("load_memories", "agent")
-    builder.add_conditional_edges("agent", route_tools, ["tools", "agent", END])
+    builder.add_conditional_edges("agent", route_tools, ["tools", "agent", END])  # , "parseerror"])
     builder.add_edge("tools", "agent")
     # builder.add_edge("parseerror", "agent")
     # Compile the graph
     memory = MemorySaver()
     return builder.compile(checkpointer=memory)
 
+def extract_tool_calls(messages, curr_rules):
+    tool_calls = []
+    for message in messages:
+        if isinstance(message, AIMessage) and message.tool_calls:
+            tool_calls.extend(message.tool_calls)  # Collect all tool calls
+
+    filtered_tool_calls = filter(lambda x:x["name"] not in ["search_recall_memories",
+                                                  "save_recall_memory", "search_document_context"], tool_calls)
+    for x in filtered_tool_calls:
+
+        vrule = ValidationRule(validation_function_name=x["name"],
+                description=x["args"]["description"], field_name=x["args"]["field_name"],
+                            arguments = [] if x["name"] == "is_valid_date" or x["args"] is None else
+                            [x["args"][y] for y in x["args"] if y not in ["description", "field_name"]])
+        if vrule.validation_function_name == "is_in_range":
+            vrule.arguments = [min(vrule.arguments[0], vrule.arguments[1]), max(vrule.arguments[0], vrule.arguments[1])]
+        curr_rules.extracted_rules.append(vrule)
 
 def generate_rules(fields: List[str]):
-    global my_rules
-    my_rules = ComplianceResponse(extracted_rules=[])
-    config = {"configurable": {"user_id": "1", "thread_id": "1"}, "recursion_limit": 100}
     graph = get_graph()
-    step = 7
 
+    step = 7
+    config = {"configurable": {"user_id": "1", "thread_id": "1"}, "recursion_limit": 50}
+    rules_to_ret = ComplianceResponse(extracted_rules=[])
     for i in range(0, len(fields), step):
         message = "Field for corporate loan schedule {}".format(', '.join(fields[i:i + step]))
         print(f"{message}")
-        graph.invoke({"messages": [("user", message)], "recall_memories": []}, config=config)
-        time.sleep(2)
-    return my_rules
+        state = graph.invoke({"messages": [("user", message)], "recall_memories": [],
+                      }, config=config)
+        extract_tool_calls(state["messages"], rules_to_ret)
+        # time.sleep(2)
+    return rules_to_ret
 
 
 @tool
 def is_integer(field_name: str, description: Annotated[str, "description of the rule"]) -> str:
-    """Regester integer check for field_name"""
+    """Register integer check for field_name"""
     my_rules.extracted_rules.append(ValidationRule(field_name=field_name,
                                                    description=description, validation_function_name=
                                                    "is_integer"))
@@ -234,10 +261,12 @@ def is_in_range(field_name: str, description: str, min_v: int, max_v: int) -> st
 @tool
 def matches_pattern(field_name: str, description: str, pattern: List[str]) -> str:
     """Register regex pattern check """
+    print(f"matches pattern called for {field_name} with pattern {pattern}")
+
     my_rules.extracted_rules.append(ValidationRule(field_name=field_name, description=description,
                                                    validation_function_name=
                                                    "matches_pattern", arguments=[pattern]))
-    print(my_rules.extracted_rules)
+
     return f"Successfully registered rule for {field_name} with validation function matches_pattern."
 
 
@@ -259,7 +288,7 @@ def is_valid_date(field_name: str, description: str, format: str) -> str:
     return f"Successfully registered rule for {field_name} with validation function is_valid_date. "
 
 
-registration_rules = [is_integer, is_in_list, is_whole_number, is_valid_date,
+registration_rules = [is_integer, is_in_list, is_whole_number,  # is_valid_date,
                       matches_pattern, is_in_range]
 
 
@@ -270,16 +299,18 @@ def solve_parse_error(state: State):
 getApiKey()
 
 rate_limiter = InMemoryRateLimiter(
-    requests_per_second=.25,  # <-- Super slow! We can only make a request once every 10 seconds!!
-    check_every_n_seconds=0.5,  # Wake up every 100 ms to check whether allowed to make a request,
+    requests_per_second=.75,  # <-- Super slow! We can only make a request once every 10 seconds!!
+    check_every_n_seconds=.2,  # Wake up every 100 ms to check whether allowed to make a request,
     max_bucket_size=10,  # Controls the maximum burst size.
 )
-# model = ChatMistralAI(
-#     model="mistral-large-latest", api_key=os.environ["MISTRAL_API_KEY"])
-model = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=os.environ["GOOGLE_API_KEY"],
-                               rate_limiter=rate_limiter)
+model = ChatMistralAI(
+    model="mistral-large-latest", api_key=os.environ["MISTRAL_API_KEY"])
+# model = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=os.environ["GOOGLE_API_KEY"],
+#                                rate_limiter=rate_limiter)
 
-my_rules = ComplianceResponse(extracted_rules=[])
 tools = [save_recall_memory, search_recall_memories, search_document_context]
 tools.extend(registration_rules)
 model_with_tools = code_ge_prompt_with_tools_to_register_rules | model.bind_tools(tools)
+
+# if __name__=="__main__":
+#     generate_rules(["Country, City, MaturityDate, OriginationDate"])

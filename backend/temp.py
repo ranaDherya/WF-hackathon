@@ -1,8 +1,15 @@
-from Core.codegen import get_graph
-from Core.utility import getApiKey
+import pandas as pd
 
-getApiKey()
-graph = get_graph()
-config = {"configurable": {"user_id": "1", "thread_id": "1"}, "recursion_limit":50}
-message = "Field for corporate loan schedule Country, City, OriginationDate, MaturityDate, FacilityType"
-_ = graph.invoke({"messages": [("user", message)], "recall_memories" :[]}, config=config)
+from Core.codegen import generate_rules
+
+from Core.codeexecution import code_execution
+import pandas
+fname = "data.csv"
+
+df = pd.read_csv(fname, skipinitialspace=True)
+columns =  list(df.columns)
+
+temp = generate_rules(columns)
+print(temp)
+
+# code_execution(, df)

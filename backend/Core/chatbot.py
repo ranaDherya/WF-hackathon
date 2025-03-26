@@ -18,7 +18,7 @@ class State(TypedDict):
 class MyChatBot:
     def __init__(self):
         self.chat_history = []
-        self.vectorstore = getVectorStore("regulatory_db")
+        self.vectorstore = getVectorStore("data/regulatory_db")
         self.llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-lite")
         self.main_prompt = get_chatbot_maintemplate()
         self.history_contextualize_prompt = get_chatbot_contextualizequery_template()

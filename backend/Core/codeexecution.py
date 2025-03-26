@@ -1,14 +1,17 @@
-import pandas as pd
-import importlib.util
 import os
-import ast, json
-from typing import List, Optional, Union
-from pydantic import BaseModel, Field
+from typing import Optional, Union, List
+
+import pandas as pd
+
 import sys
+
+from pydantic import BaseModel, Field
 from pydantic_core import from_json
 
-from Core.codegen import ComplianceResponse
-from generated_validations import *
+# from Core.codegen import ComplianceResponse
+from Core.generated_validations import *
+from Core.ValidationRuleClass import ComplianceResponse
+
 # Define Validation Rule Schema
 
 # Step 1: Write new functions to a Python file
@@ -69,23 +72,24 @@ def load_validation_rules(json_path):
 def code_execution(validation_rules, df):
     # Example Data Row
     # Validate Row
-    errors = ["index, field, value, error"]
+    errors = ["index, field, value, error\n"]
     for idx, row in df.iterrows():
         errors.extend(validate_row(idx, row, validation_rules))
-
+    if not os.path.exists("../data/temp"):
+        os.makedirs("../data/temp")
     if errors:
         print("Validation Errors:")
-        with open("data/temp/validation_errors.csv", "w") as f:
+        with open("../data/temp/validation_errors.csv", "w") as f:
             for error in errors:
-                f.writelines(error)
+                f.write(error+"\n")
     else:
         print("All validations passed.")
 
 # # Step 5: Main Execution
-# if __name__ == "__main__":
-#     validation_rules = load_validation_rules("validation.json")
-#     fname = sys.argv[1]
-#     # Generate function file
-#     df = pd.read_csv(fname, skipinitialspace=True)
-#     code_execution(validation_rules, df)
+if __name__ == "__main__":
+    validation_rules = load_validation_rules("validation.json")
+    fname = sys.argv[1]
+    # Generate function file
+    df = pd.read_csv(fname, skipinitialspace=True)
+    code_execution(validation_rules, df)
 
