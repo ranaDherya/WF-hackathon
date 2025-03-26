@@ -16,3 +16,6 @@ PyMuPDF
 faiss-cpu
 langchain_mistralai
 google-generativeai
+matplotlib
+seaborn
+scikit-learn
