@@ -1,7 +1,8 @@
-from typing import Dict, Any
+import os
+import zipfile
 import pandas as pd
 import io
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 
 from Core.anomalydetection import run_anomaly_detection
 from Core.codeexecution import code_execution
@@ -79,12 +80,33 @@ async def upload_dataset_csv(payload):
             contents = await file.read()
             df = pd.read_csv(io.BytesIO(contents), skipinitialspace=True)
             df = df.fillna("")  # Replace NaN with empty strin
+            try:
+                os.remove("data/temp/data.zip")
+            except OSError as e:
+                print("Error: %s - %s." % (e.filename, e.strerror))
+
             process_df(df)
+            with zipfile.ZipFile("data/temp/data.zip", "w") as zip_file:
+                for root, dirs, files in os.walk("data/temp"):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        zip_file.write(file_path, os.path.relpath(file_path, "data/temp"))
+
+            headers = {"Content-Disposition": "attachment; filename=files.zip"}
             user_message["csv_preview"] = json.loads(df.head().to_json())  # Send first 5 rows as preview
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+                for root, dirs, files in os.walk("data/temp"):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        zip_file.write(file_path, os.path.relpath(file_path, "data/temp"))
+
+            return Response(zip_buffer.getvalue(), headers=headers, media_type="application/zip")
+
         else:
             raise HTTPException(status_code=400, detail="Only CSV files are supported")
 
-        return {"message": "Uploaded Successfully"}
+        # return {"message": "Uploaded Successfully"}
 
 
 def generate_validation_report(df, columns):
