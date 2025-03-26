@@ -28,9 +28,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({
 
     const formData = new FormData();
     formData.append("message", input); // Send user query
-    if (selectedFile) {
-      formData.append("file", selectedFile); // Attach CSV file
-    }
 
     try {
       await axios.post(`${API_URL}/chats/${selectedChat}/send`, formData, {
@@ -39,7 +36,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({
 
       fetchChats(selectedChat);
       setInput("");
-      setSelectedFile(null);
+      // setSelectedFile(null);
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -48,6 +45,26 @@ const ChatArea: React.FC<ChatAreaProps> = ({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setSelectedFile(event.target.files[0]);
+    }
+  };
+
+  const uploadFile = async () => {
+    const formData = new FormData();
+    if (!selectedFile) return;
+    if (selectedFile) {
+      formData.append("file", selectedFile); // Attach CSV file
+    }
+
+    try {
+      const res = await axios.post(`${API_URL}/dataset`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      console.log(res);
+      fetchChats(selectedChat);
+      // setInput("");
+      setSelectedFile(null);
+    } catch (error) {
+      console.error("Error sending message:", error);
     }
   };
 
@@ -69,6 +86,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({
 
       <div className="chat-input">
         <input type="file" accept=".csv" onChange={handleFileChange} />
+        <button onClick={uploadFile}>Upload</button>
       </div>
       <div className="chat-input">
         <input

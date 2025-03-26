@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from Core.chatbot import MyChatBot
+# from Core.chatbot import MyChatBot
 from fastapi import APIRouter, FastAPI, Request, Form, File, UploadFile, Depends
 from controllers.chat_controller import (
     get_chat_list,
@@ -7,8 +7,9 @@ from controllers.chat_controller import (
     user_sends_message,
     create_new_chat,
     delete_chat,
+    upload_dataset_csv,
 )
-from Core.utility import getApiKey
+# from Core.utility import getApiKey
 from typing import Dict, Any, Optional
 
 router = APIRouter()
@@ -25,10 +26,9 @@ async def chat_history(chat_id: str):
 async def send_message(
     request: Request,
     chat_id: str,
-    message: str = Form(...),  # ✅ Accepts message from form
-    file: Optional[UploadFile] = File(None)  # ✅ Accepts optional file
+    message: str = Form(...),
 ):
-    payload = {"sender": "user", "message": message, "file": file}
+    payload = {"sender": "user", "message": message}
     return await user_sends_message(request.app.state.chatbot, chat_id, payload)
 @router.post("/chats")
 async def new_chat():
@@ -37,3 +37,8 @@ async def new_chat():
 @router.delete("/chats/{chat_id}")
 async def remove_chat(chat_id: str):
     return delete_chat(chat_id)
+
+@router.post("/dataset")
+async def upload_dataset(file: UploadFile):
+    payload = {"file": file}
+    return await upload_dataset_csv(payload)

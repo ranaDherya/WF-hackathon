@@ -3,7 +3,7 @@ import pandas as pd
 import io
 from fastapi import HTTPException
 from db.chat_data import chat_data, chat_data_index
-from Core.chatbot import MyChatBot
+# from Core.chatbot import MyChatBot
 import json
 
 
@@ -28,19 +28,7 @@ async def user_sends_message(bot, chat_id: str, payload):
         "message": payload["message"]
     }
 
-    # ✅ Process CSV File if Uploaded
-    if payload.get("file") and payload["file"].filename:  # Ensure file exists
-        file = payload["file"]
-        print(1)
-        if file.filename.endswith(".csv"):
-            print(2)
-            contents = await file.read()
-            df = pd.read_csv(io.BytesIO(contents))
-            df = df.fillna("")  # Replace NaN with empty strin
-            user_message["csv_preview"] = json.loads(df.head().to_json())  # Send first 5 rows as preview
-        else:
-            raise HTTPException(status_code=400, detail="Only CSV files are supported")
-
+    
     chat_data[chat_id].append(user_message)
 
     # ✅ Generate Bot Reply
@@ -71,3 +59,20 @@ def delete_chat(chat_id: str):
     del chat_data[chat_id]
     return {"id": chat_id, "message": "Deleted Chat"}
 
+# Upload dataset
+async def upload_dataset_csv(payload):
+    user_message = {}
+    # ✅ Process CSV File if Uploaded
+    if payload.get("file") and payload["file"].filename:  # Ensure file exists
+        file = payload["file"]
+        print(1)
+        if file.filename.endswith(".csv"):
+            print(2)
+            contents = await file.read()
+            df = pd.read_csv(io.BytesIO(contents))
+            df = df.fillna("")  # Replace NaN with empty strin
+            user_message["csv_preview"] = json.loads(df.head().to_json())  # Send first 5 rows as preview
+        else:
+            raise HTTPException(status_code=400, detail="Only CSV files are supported")
+
+        return {"message": "Uploaded Successfully"}

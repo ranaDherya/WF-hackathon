@@ -20,3 +20,4 @@ python-multipart
 matplotlib
 seaborn
 scikit-learn
+tiktoken
