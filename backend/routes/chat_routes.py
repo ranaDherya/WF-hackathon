@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from Core.chatbot import MyChatBot
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request, Form, File, UploadFile, Depends
 from controllers.chat_controller import (
     get_chat_list,
     get_chat_history,
@@ -9,21 +9,8 @@ from controllers.chat_controller import (
     delete_chat,
 )
 from Core.utility import getApiKey
+from typing import Dict, Any, Optional
 
-from typing import Dict, Any
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     ''' Run at startup
-#         Initialize the Client and add it to app.state
-#     '''
-#     getApiKey()
-#     app.state.chatbot = MyChatBot()
-#     yield
-#     ''' Run on shutdown
-#         Close the connection
-#         Clear variables and release the resources
-#     '''
-# app = FastAPI(lifespan=lifespan) 
 router = APIRouter()
 
 @router.get("/chats")
@@ -35,9 +22,14 @@ async def chat_history(chat_id: str):
     return get_chat_history(chat_id)
 
 @router.post("/chats/{chat_id}/send")
-async def send_message(request: Request , chat_id: str, payload: Dict[Any, Any]):
+async def send_message(
+    request: Request,
+    chat_id: str,
+    message: str = Form(...),  # ✅ Accepts message from form
+    file: Optional[UploadFile] = File(None)  # ✅ Accepts optional file
+):
+    payload = {"sender": "user", "message": message, "file": file}
     return await user_sends_message(request.app.state.chatbot, chat_id, payload)
-
 @router.post("/chats")
 async def new_chat():
     return create_new_chat()

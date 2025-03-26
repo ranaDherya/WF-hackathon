@@ -1,8 +1,10 @@
 from typing import Dict, Any
-
+import pandas as pd
+import io
 from fastapi import HTTPException
 from db.chat_data import chat_data, chat_data_index
 from Core.chatbot import MyChatBot
+import json
 
 
 def get_chat_list():
@@ -15,29 +17,42 @@ def get_chat_history(chat_id: str):
     return chat_data[chat_id]
 
 # User sends a message (Fixed version)
-async def user_sends_message(bot, chat_id: str, payload: Dict[Any, Any]):
+async def user_sends_message(bot, chat_id: str, payload):
     if chat_id not in chat_data:
         chat_data[chat_id] = []
 
-
     new_message_id = len(chat_data[chat_id]) + 1
-    chat_data[chat_id].append({
+    user_message = {
         "id": new_message_id,
-        "sender": payload['sender'],
-        "message": payload['message']
-    })
+        "sender": payload["sender"],
+        "message": payload["message"]
+    }
 
-    # Bot auto-reply
-    bot_reply = bot.generate(payload['message'])
+    # ✅ Process CSV File if Uploaded
+    if payload.get("file") and payload["file"].filename:  # Ensure file exists
+        file = payload["file"]
+        print(1)
+        if file.filename.endswith(".csv"):
+            print(2)
+            contents = await file.read()
+            df = pd.read_csv(io.BytesIO(contents))
+            df = df.fillna("")  # Replace NaN with empty strin
+            user_message["csv_preview"] = json.loads(df.head().to_json())  # Send first 5 rows as preview
+        else:
+            raise HTTPException(status_code=400, detail="Only CSV files are supported")
 
-    chat_data[chat_id].append(bot_reply)
+    chat_data[chat_id].append(user_message)
+
+    # ✅ Generate Bot Reply
+    bot_reply = bot.generate(payload["message"])
     new_message_id = len(chat_data[chat_id]) + 1
     chat_data[chat_id].append({
         "id": new_message_id,
         "sender": "bot",
         "message": bot_reply
     })
-    return bot_reply
+
+    return {"user_message": user_message, "bot_reply": bot_reply}
 
 
 # Create a new chat

@@ -16,6 +16,7 @@ PyMuPDF
 faiss-cpu
 langchain_mistralai
 google-generativeai
+python-multipart
 matplotlib
 seaborn
 scikit-learn
