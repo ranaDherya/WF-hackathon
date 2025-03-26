@@ -6,21 +6,10 @@ from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 import sys
 from pydantic_core import from_json
+
+from Core.codegen import ComplianceResponse
 from generated_validations import *
 # Define Validation Rule Schema
-class ValidationRule(BaseModel):
-
-    description: str = Field(..., description="Detailed explanation of the requirement")
-    field_name: str = Field(..., description="field name")
-    validation_function_name: str = Field(..., description="Function from chat history which can be used for this or generated"
-                                                           "function name from code")
-    arguments: Optional[Union[List[int], List[str], List[List[str]]] ] =  Field(..., description="Extra aruments needed for function for.eg"
-                                                                                                 "for regex validator it will be regex pattern, for range validator it will be min and max value")
-    code: Optional[str] = Field(None, description="import statement and function without any main method. This function will be used later by main method")
-
-class ComplianceResponse(BaseModel):
-    """Respond to the user with this"""
-    extracted_rules: List[ValidationRule] = Field(..., description="List of extracted data validation rules")
 
 # Step 1: Write new functions to a Python file
 # GENERATED_FILE = os.path.dirname(os.path.abspath(__file__)) + os.sep + ("generated_validations.py")

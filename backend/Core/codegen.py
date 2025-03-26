@@ -1,48 +1,42 @@
 import os
+import time
 import uuid
 
 from langchain_core.documents import Document
 from langchain_core.messages import get_buffer_string
+from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mistralai import ChatMistralAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Annotated
 
-from Core.prompts import code_gen_chain_prompt
+from Core.prompts import code_gen_chain_prompt, code_ge_prompt_with_tools_to_register_rules
 from Core.settings import vecstore, tokenizer
 from Core.utility import getApiKey
 
 
 # Data model
-class Code(BaseModel):
-    """Schema for validation function."""
-
-    imports: Optional[str] = Field(..., description="import and function")
-    body: Optional[str] = Field(..., description="Function")
-    testing: Optional[str] = Field(..., description="This code is used to test function will "
-                                                    "be used just to test if your code is correct")
-
-
 class ValidationRule(BaseModel):
-    rule_id: str = Field(..., description="Unique identifier for the validation rule")
     description: str = Field(..., description="Detailed explanation of the requirement")
-    impacted_data_fields: List[str] = Field(..., description="List of affected data fields")
+    field_name: str = Field(..., description="field name")
     validation_function_name: str = Field(...,
                                           description="Function from chat history which can be used for this or generated"
                                                       "function name from code")
-    validation_function_argument: Optional[Union[List[int], List[str], List[List[str]]]] = Field(...,
-                                                                                                 description="Extra aruments needed for function for.eg"
-                                                                                                             "for regex validator it will be regex pattern, for range validator it will be min and max value")
+    arguments: Optional[Union[List[int], List[str], List[List[str]]]] = Field(...,
+                                                                              description="Extra aruments needed for function for.eg"
+                                                                                          "for regex validator it will be regex pattern, for range validator it will be min and max value")
     code: Optional[str] = Field(None,
                                 description="import statement and function without any main method. This function will be used later by main method")
 
 
 class ComplianceResponse(BaseModel):
+    """Respond to the user with this"""
     extracted_rules: List[ValidationRule] = Field(..., description="List of extracted data validation rules")
 
 
@@ -149,11 +143,12 @@ def extract_response(text: str) -> ComplianceResponse | None:
         print(f"Failed to parse :- {text}")
         return None
 
+
 def parse_message(message) -> bool:
     response_obj = extract_response(message.content)
     if response_obj is None:
         return False
-    all_rule.extracted_rules.extend(response_obj.extracted_rules)
+    # all_rule.extracted_rules.extend(response_obj.extracted_rules)
     return True
 
 
@@ -170,9 +165,10 @@ def route_tools(state: State):
     if msg.tool_calls:
         print(msg.tool_calls)
         return "tools"
-    elif parse_message(msg) == False:
-        return "parseerror"
+    # elif parse_message(msg) == False:
+    #     return "parseerror"
     return END
+
 
 def get_graph():
     # Create the graph and add nodes
@@ -181,22 +177,22 @@ def get_graph():
     builder.add_node(agent)
     tools = [save_recall_memory, search_recall_memories, search_document_context]
     builder.add_node("tools", ToolNode(tools))
-    builder.add_node("parseerror", solve_parse_error)
+    # builder.add_node("parseerror", solve_parse_error)
     # Add edges to the graph
     builder.add_edge(START, "load_memories")
     builder.add_edge("load_memories", "agent")
-    builder.add_conditional_edges("agent", route_tools, ["tools", "agent","parseerror", END])
+    builder.add_conditional_edges("agent", route_tools, ["tools", "agent", END])
     builder.add_edge("tools", "agent")
-    builder.add_edge("parseerror", "agent")
+    # builder.add_edge("parseerror", "agent")
     # Compile the graph
     memory = MemorySaver()
     return builder.compile(checkpointer=memory)
 
 
 def generate_rules(fields: List[str]):
-    global all_rule
-    all_rule = ComplianceResponse(extracted_rules=[])
-    config = {"configurable": {"user_id": "1", "thread_id": "1"}}
+    global my_rules
+    my_rules = ComplianceResponse(extracted_rules=[])
+    config = {"configurable": {"user_id": "1", "thread_id": "1"}, "recursion_limit": 100}
     graph = get_graph()
     step = 7
 
@@ -204,14 +200,86 @@ def generate_rules(fields: List[str]):
         message = "Field for corporate loan schedule {}".format(', '.join(fields[i:i + step]))
         print(f"{message}")
         graph.invoke({"messages": [("user", message)], "recall_memories": []}, config=config)
-    return all_rule
+        time.sleep(2)
+    return my_rules
+
+
+@tool
+def is_integer(field_name: str, description: Annotated[str, "description of the rule"]) -> str:
+    """Regester integer check for field_name"""
+    my_rules.extracted_rules.append(ValidationRule(field_name=field_name,
+                                                   description=description, validation_function_name=
+                                                   "is_integer"))
+
+    return f"Successfully registered rule for {field_name} with validation function is_integer."
+
+
+@tool
+def is_whole_number(field_name: str, description: str) -> str:
+    """Register whole number check for field_name"""
+    my_rules.extracted_rules.append(ValidationRule(field_name=field_name, description=description,
+                                                   validation_function_name=
+                                                   "is_whole_number"))
+    return f"Successfully registered rule for {field_name} with validation function  is_whole_number."
+
+
+@tool
+def is_in_range(field_name: str, description: str, min_v: int, max_v: int) -> str:
+    """Register whole number check for field_name"""
+    my_rules.extracted_rules.append(ValidationRule(field_name=field_name, description=description,
+                                                   validation_function_name=
+                                                   "is_in_range", arguments=[min_v, max_v]))
+    return f"Successfully registered rule for {field_name} with validation function  is_in_range."
+
+
+@tool
+def matches_pattern(field_name: str, description: str, pattern: List[str]) -> str:
+    """Register regex pattern check """
+    my_rules.extracted_rules.append(ValidationRule(field_name=field_name, description=description,
+                                                   validation_function_name=
+                                                   "matches_pattern", arguments=[pattern]))
+    return f"Successfully registered rule for {field_name} with validation function matches_pattern."
+
+
+@tool
+def is_in_list(field_name: str, description: str, allowed_values: List[str]) -> str:
+    """Register is in list check"""
+    my_rules.extracted_rules.append(ValidationRule(field_name=field_name, description=description,
+                                                   validation_function_name=
+                                                   "is_in_list", arguments=[allowed_values]))
+    return f"Successfully registered rule for {field_name} with validation function is_in_list."
+
+
+@tool
+def is_valid_date(field_name: str, description: str, format: str) -> str:
+    """Register is valid date format check"""
+    my_rules.extracted_rules.append(
+        ValidationRule(field_name=field_name, description=description, validation_function_name=
+        "is_valid_date"))
+    return f"Successfully registered rule for {field_name} with validation function is_valid_date. "
+
+
+registration_rules = [is_integer, is_in_list, is_whole_number, is_valid_date,
+                      matches_pattern, is_in_range]
 
 
 def solve_parse_error(state: State):
     return {"messages": [("user", "You should have invoked tools instead of giving json repsonse")]}
+
+
 getApiKey()
-model = ChatMistralAI(
-    model="mistral-large-latest", api_key=os.environ["MISTRAL_API_KEY"])
-all_rule = ComplianceResponse(extracted_rules=[])
+
+rate_limiter = InMemoryRateLimiter(
+    requests_per_second=.25,  # <-- Super slow! We can only make a request once every 10 seconds!!
+    check_every_n_seconds=0.5,  # Wake up every 100 ms to check whether allowed to make a request,
+    max_bucket_size=10,  # Controls the maximum burst size.
+)
+# model = ChatMistralAI(
+#     model="mistral-large-latest", api_key=os.environ["MISTRAL_API_KEY"])
+model = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=os.environ["GOOGLE_API_KEY"],
+                               rate_limiter=rate_limiter)
+
+my_rules = ComplianceResponse(extracted_rules=[])
 tools = [save_recall_memory, search_recall_memories, search_document_context]
-model_with_tools = code_gen_chain_prompt | model.bind_tools(tools)
+tools.extend(registration_rules)
+model_with_tools = code_ge_prompt_with_tools_to_register_rules | model.bind_tools(tools)
