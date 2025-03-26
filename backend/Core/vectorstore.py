@@ -1,12 +1,8 @@
 import pymupdf
-import pandas as pd
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import FAISS
-
-from langchain.document_loaders import PyMuPDFLoader
 from langchain.docstore.document import Document
-from langchain.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
 import re
 
 # Load PDF

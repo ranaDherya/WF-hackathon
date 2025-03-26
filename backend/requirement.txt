@@ -21,3 +21,5 @@ matplotlib
 seaborn
 scikit-learn
 tiktoken
+sentence-transformers
+langchain-huggingface

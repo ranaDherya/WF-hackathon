@@ -4,9 +4,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.ensemble import IsolationForest
 
-def load_data(file_path):
-    """ Load dataset from a CSV file """
-    return pd.read_csv(file_path)
 
 def detect_outliers(data, contamination=0.05):
     """ Detects and removes outliers using Isolation Forest """
@@ -32,7 +29,7 @@ def generate_report(original_data, cleaned_data, outliers_data):
     print(report)
 
     # Save the report
-    with open("data/outlier_report.txt", "w") as f:
+    with open("data/temp/outlier_report.txt", "w") as f:
         f.write(report)
 
     # Boxplot before and after outlier removal
@@ -45,15 +42,15 @@ def generate_report(original_data, cleaned_data, outliers_data):
     sns.boxplot(data=cleaned_data.select_dtypes(include=[np.number]))
     plt.title("After Outlier Removal")
 
-    plt.savefig("data/outlier_removal_visualization.png")
+    plt.savefig("data/temp/outlier_removal_visualization.png")
     plt.show()
 
-def run_anomaly_detection(file_path):
-    data = load_data(file_path)
+def run_anomaly_detection(data):
     cleaned_data, outliers_data = detect_outliers(data)
     generate_report(data, cleaned_data, outliers_data)
 
-    cleaned_data.to_csv("data/cleaned_dataset.csv", index=False)
-    outliers_data.to_csv("data/removed_outliers.csv", index=False)
+    cleaned_data.to_csv("data/temp/cleaned_dataset.csv", index=False)
+    outliers_data.to_csv("data/temp/removed_outliers.csv", index=False)
     print("Cleaned dataset and outlier records saved successfully.")
+
 

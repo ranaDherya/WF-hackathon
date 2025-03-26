@@ -1,5 +1,8 @@
-pdf_path = r"C:\Users\ranaD\OneDrive\Desktop\hackathon\backend\FR_Y-14Q20240331_i.pdf"
+from Core.codegen import get_graph
+from Core.utility import getApiKey
 
-from Core.vectorstore import initializeVectorStore
-
-initializeVectorStore(pdf_path)
+getApiKey()
+graph = get_graph()
+config = {"configurable": {"user_id": "1", "thread_id": "1"}, "recursion_limit":50}
+message = "Field for corporate loan schedule Country, City, OriginationDate, MaturityDate, FacilityType"
+_ = graph.invoke({"messages": [("user", message)], "recall_memories" :[]}, config=config)

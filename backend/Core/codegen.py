@@ -1,9 +1,11 @@
+import os
 import uuid
 
 from langchain_core.documents import Document
 from langchain_core.messages import get_buffer_string
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
+from langchain_mistralai import ChatMistralAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import MessagesState, StateGraph
@@ -11,7 +13,9 @@ from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
 from typing import List, Optional, Union
 
-from Core.settings import vecstore, model_with_tools, tokenizer
+from Core.prompts import code_gen_chain_prompt
+from Core.settings import vecstore, tokenizer
+from Core.utility import getApiKey
 
 
 # Data model
@@ -132,7 +136,6 @@ def load_memories(state: State, config: RunnableConfig) -> State:
 
 
 from pydantic_core import from_json
-import unicodedata
 
 
 def extract_response(text: str) -> ComplianceResponse | None:
@@ -145,10 +148,6 @@ def extract_response(text: str) -> ComplianceResponse | None:
     except:
         print(f"Failed to parse :- {text}")
         return None
-
-
-all_rule = ComplianceResponse(extracted_rules=[])
-
 
 def parse_message(message) -> bool:
     response_obj = extract_response(message.content)
@@ -194,7 +193,7 @@ def get_graph():
     return builder.compile(checkpointer=memory)
 
 
-def generate_code(fields: List[str]):
+def generate_rules(fields: List[str]):
     global all_rule
     all_rule = ComplianceResponse(extracted_rules=[])
     config = {"configurable": {"user_id": "1", "thread_id": "1"}}
@@ -210,3 +209,9 @@ def generate_code(fields: List[str]):
 
 def solve_parse_error(state: State):
     return {"messages": [("user", "You should have invoked tools instead of giving json repsonse")]}
+getApiKey()
+model = ChatMistralAI(
+    model="mistral-large-latest", api_key=os.environ["MISTRAL_API_KEY"])
+all_rule = ComplianceResponse(extracted_rules=[])
+tools = [save_recall_memory, search_recall_memories, search_document_context]
+model_with_tools = code_gen_chain_prompt | model.bind_tools(tools)

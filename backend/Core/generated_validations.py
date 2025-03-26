@@ -1,136 +1,37 @@
-# Auto-generated validation functions
 
 import re
-
-def regex_validator(data, patterns):
-    """
-    Validate data against a list of regex patterns.
-    """
-    for pattern in patterns:
-        if re.fullmatch(pattern, data):
-            return True
-    return False
-
-# Example usage
-# data = "123456"  # Example data to validate
-# patterns = ["^\d{4,6}$", "^\d{2,4}$", "^[A-Z0-9]{6}$"]  # List of regex patterns
-# is_valid = regex_validator(data, patterns)
-# print(is_valid)
-
-import re
-
-def regex_validator(data, patterns):
-    """
-    Validate data against a list of regex patterns.
-    """
-    for pattern in patterns:
-        if re.fullmatch(pattern, data):
-            return True
-    return False
-
-# Example usage
-# data = "123456"  # Example data to validate
-# patterns = ["^\d{4,6}$", "^\d{2,4}$", "^[A-Z0-9]{6}$"]  # List of regex patterns
-# is_valid = regex_validator(data, patterns)
-# print(is_valid)
-
-def list_validator(data, allowed_values):
-    """
-    Validate data against a list of allowed values.
-    """
-    return data in allowed_values
-
-# Example usage
-# data = "NAICS"  # Example data to validate
-# allowed_values = ["NAICS", "SIC", "GICS"]  # List of allowed values
-# is_valid = list_validator(data, allowed_values)
-# print(is_valid)
-
-def list_validator(data, allowed_values):
-    """
-    Validate data against a list of allowed values.
-    """
-    return data in allowed_values
-
-# Example usage
-# data = "NAICS"  # Example data to validate
-# allowed_values = ["NAICS", "SIC", "GICS"]  # List of allowed values
-# is_valid = list_validator(data, allowed_values)
-# print(is_valid)
-
 from datetime import datetime
+from langchain_core.tools import tool
 
-def date_validator(data):
-    """
-    Validate data against the date format YYYY-MM-DD.
-    """
+# Generic Validation Functions
+def is_integer(value):
+    return isinstance(value, int)
+
+def is_whole_number(value):
+    return isinstance(value, int) and value >= 0
+
+def is_in_range(value, min_v, max_v):
+    return min_v <= value <= max_v
+
+def matches_pattern(value, pattern):
+    for pat in pattern:
+        if re.fullmatch(pat, str(value)) is not None:
+            return True
+    return False
+
+def is_in_list(value, allowed_values):
+    return value in allowed_values
+
+def is_valid_date(value):
     try:
-        datetime.strptime(data, '%Y-%m-%d')
+        date_format="%Y-%m-%d"
+        datetime.strptime(value, date_format)
         return True
     except ValueError:
         return False
 
-# Example usage
-# data = "2023-10-05"  # Example data to validate
-# is_valid = date_validator(data)
-# print(is_valid)
+def is_valid_country_code(value, valid_codes):
+    return value in valid_codes
 
-from datetime import datetime
-
-def date_validator(data):
-    """
-    Validate data against the date format YYYY-MM-DD.
-    """
-    try:
-        datetime.strptime(data, '%Y-%m-%d')
-        return True
-    except ValueError:
-        return False
-
-# Example usage
-# data = "2023-10-05"  # Example data to validate
-# is_valid = date_validator(data)
-# print(is_valid)
-
-def decimal_validator(data, decimal_places):
-    """
-    Validate that the data is a decimal number with the specified number of decimal places.
-    """
-    try:
-        # Split the data into integer and decimal parts
-        integer_part, decimal_part = data.split('.')
-        # Check if the decimal part has the correct number of places
-        if len(decimal_part) == decimal_places:
-            return True
-        else:
-            return False
-    except ValueError:
-        return False
-
-# Example usage
-# data = "0.0005"  # Example data to validate
-# decimal_places = 4  # Number of decimal places
-# is_valid = decimal_validator(data, decimal_places)
-# print(is_valid)
-
-def decimal_validator(data, decimal_places):
-    """
-    Validate that the data is a decimal number with the specified number of decimal places.
-    """
-    try:
-        # Split the data into integer and decimal parts
-        integer_part, decimal_part = data.split('.')
-        # Check if the decimal part has the correct number of places
-        if len(decimal_part) == decimal_places:
-            return True
-        else:
-            return False
-    except ValueError:
-        return False
-
-# Example usage
-# data = "0.0005"  # Example data to validate
-# decimal_places = 4  # Number of decimal places
-# is_valid = decimal_validator(data, decimal_places)
-# print(is_valid)
-
+def no_nonprintable_chars(value):
+    return not bool(re.search(r"[\x00-\x1F\x7F]", value))
